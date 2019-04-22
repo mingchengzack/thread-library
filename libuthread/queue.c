@@ -5,7 +5,7 @@
 #include "queue.h"
 
 struct queue {
-	/* TODO Phase 1 */
+    
 };
 
 queue_t queue_create(void)
