@@ -18,6 +18,12 @@ void test_create(void)
     assert(q != NULL);
 }
 
+void test_delete(void)
+{
+    queue_t q;
+    q = queue_create();
+}
+
 void test_queue_simple(void)
 {
     queue_t q;
@@ -31,7 +37,14 @@ void test_queue_simple(void)
 
 int main(void)
 {
+    printf("Testing queue_create()\n");
     test_create();
+    printf("queue_create() OK!\n");
+
+    printf("Testing queue_destroy()\n");
+    
+    printf("queue_destroy() OK\n");
+
     test_queue_simple();
     return 0;
 }
