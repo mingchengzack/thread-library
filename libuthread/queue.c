@@ -139,7 +139,7 @@ int queue_iterate(queue_t queue, queue_func_t func, void *arg, void **data)
     struct queue_node *current_item = queue->head;       /* get the current head */
     
     /* go through the queue until end or func returns 1 */
-    while(current_item && (*func)(current_item->data, arg) != SUCCESS) 
+    while(current_item && (*func)(current_item->data, arg) != 1) 
         current_item = current_item->next;
 
     /* iteration stops prematurely */
