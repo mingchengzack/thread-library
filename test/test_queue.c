@@ -393,8 +393,8 @@ void test_iterate(void)
 {
     queue_t q = NULL;
     int ret;
-    int case_inc_one[8] = {3, 4, 5, 6, 7, 8, 9, 10};
     int case_inc_two[8] = {3, 4, 5, 6, 7, 8, 9, 10};
+    int case_inc_neg_two[8] = {3, 4, 5, 6, 7, 8, 9, 10};
     int case_find[8] = {3, 4, 5, 6, 7, 8, 9, 10};
     printf("Testing queue_iterate()...\n");
 
@@ -413,11 +413,11 @@ void test_iterate(void)
      */
     /* case 1: used inc_item to increment 2 to the item in the queue */
     int inc_two_match[8] = {5, 6, 7, 8, 9, 10, 11, 12};
-    test_inc(2, case_inc_one, inc_two_match, 8);
+    test_inc(2, case_inc_two, inc_two_match, 8);
 
-    /* case 2: used inc_item to increment -1 to the item in the queue */
+    /* case 2: used inc_item to increment -2 to the item in the queue */
     int inc_neg_two_match[8] = {1, 2, 3, 4, 5, 6, 7, 8};
-    test_inc(-2, case_inc_two, inc_neg_two_match, 8);
+    test_inc(-2, case_inc_neg_two, inc_neg_two_match, 8);
 
     /* case 3: used find_item to find the item 8 and increment it */
     test_find(8, FOUND, case_find, 8, 5);
@@ -436,7 +436,8 @@ void test_iterate(void)
  * case 1: empty queue
  * case 2: enqueue an array of length 8
  * case 3: enqueue an array of length 8, and dequeue twice
- * case 4: when queue is empty
+ * case 4: delete an item : 10
+ * case 5: when queue is empty
  */
 void test_length(void)
 {
@@ -466,8 +467,13 @@ void test_length(void)
     ret = queue_length(q);
     assert(ret == 6); 
     
+    /* case 4: delete an item : 10 */
+    queue_delete(q, &data[7]);
+    ret = queue_length(q);
+    assert(ret == 5);
+
     /* destroy the queue after testing */
-    for(i = 0; i < 6; i++)
+    for(i = 0; i < 5; i++)
         queue_dequeue(q, (void**)&ptr);
     
     /* case 4: when queue is empty */

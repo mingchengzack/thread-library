@@ -2,7 +2,9 @@
 lib := libuthread.a
 objs := \
 	queue.o \
-	uthread.o
+	uthread.o \
+	context.o \
+	preempt.o
 
 # Don't print the commands unless explicitely requested with `make V=1`
 ifneq ($(V),1)

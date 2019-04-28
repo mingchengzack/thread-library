@@ -125,6 +125,7 @@ int queue_delete(queue_t queue, void *data)
     /* delete the tail */
     if(current_item == queue->tail)
 	queue->tail = prev_item;                         /* set the new tail */
+    queue->length--;                                     /* decrement the queue size */
     free(current_item);                                  /* deallocate the memory for the deleted item */
     return SUCCESS;
 }
