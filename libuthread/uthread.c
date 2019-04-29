@@ -18,8 +18,7 @@ enum
     READY,
     RUNNING,
     BLOCKED,
-    ZOMBIE,
-    EXITED
+    ZOMBIE
 };
 
 /* success and failure defines */
@@ -128,6 +127,8 @@ int uthread_create(uthread_func_t func, void *arg)
     void *stack = uthread_ctx_alloc_stack();
     struct thread *new_thread = (struct thread*) malloc(sizeof(struct thread));
     uthread_ctx_t *uctx = (uthread_ctx_t *) malloc(sizeof(uthread_ctx_t));
+    
+    /* memory allocation error */
     if(!stack || !new_thread || !uctx)
 	return FAILURE;
 
@@ -162,13 +163,13 @@ void uthread_exit(int retval)
     /* unblock joined thread if it has one */
     if(current_thread->joined_thread)
     {
-        current_thread->joined_thread->state = RUNNING;
+        current_thread->joined_thread->state = READY;
         queue_enqueue(ready_threads, current_thread->joined_thread);
     }
 
     /* get the next available thread */
     ret = queue_dequeue(ready_threads, (void**)&next_thread);
-
+    
     /* check if thread library is initialized
      * and there is another ready thread
      */
@@ -203,7 +204,7 @@ static int find_thread(void *data, void *arg)
 {
     struct thread *t = (struct thread*) data;
     uthread_t match_tid = *((uthread_t*)arg);
-
+    
     if (t->tid == match_tid)
         return 1;
 
@@ -218,7 +219,7 @@ int uthread_join(uthread_t tid, int *retval)
     
     int ret;
     struct thread *thread_to_join = NULL;
-    
+ 
     /* find the thread with tid in the ready threads queue */
     ret = queue_iterate(ready_threads, find_thread, 
         (void*)&tid, (void**)&thread_to_join);
@@ -246,18 +247,19 @@ int uthread_join(uthread_t tid, int *retval)
     if(thread_to_join)
     {
 	/* the thread has already been joined */
-        if(thread_to_join->joined_thread != current_thread)
+        if(thread_to_join->joined_thread
+	    && thread_to_join->joined_thread != current_thread)
             return FAILURE; 
 
 	/* delete the item from the zombie queue */
-	queue_delete(zombie_threads, (void*)thread_to_join);
+	queue_delete(zombie_threads, thread_to_join);
 
 	/* set return value */
 	if(retval)
 	    *retval = thread_to_join->retval;
 
 	/* free the resources with the dead thread */
-        delete_thread(thread_to_join);	
+        delete_thread(thread_to_join);
 	return SUCCESS;
     }
 
