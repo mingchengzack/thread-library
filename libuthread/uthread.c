@@ -105,6 +105,10 @@ int uthread_init(void)
     current_thread->state = RUNNING;
     current_thread->uctx = &main_ctx;
     current_thread->joined_thread = NULL;
+    
+    /* start preemption */
+    //preempt_start();
+
     return SUCCESS;
 }
 
@@ -124,29 +128,28 @@ int uthread_create(uthread_func_t func, void *arg)
         return FAILURE;  
    
     /* allocate memory for a new context and the thread */
-    void *stack = uthread_ctx_alloc_stack();
     struct thread *new_thread = (struct thread*) malloc(sizeof(struct thread));
-    uthread_ctx_t *uctx = (uthread_ctx_t *) malloc(sizeof(uthread_ctx_t));
+    new_thread->stack = uthread_ctx_alloc_stack();
+    new_thread->uctx = (uthread_ctx_t *) malloc(sizeof(uthread_ctx_t));
     
     /* memory allocation error */
-    if(!stack || !new_thread || !uctx)
-	return FAILURE;
-
-    /* initializes the context */
-    ret = uthread_ctx_init(uctx, stack, func, arg);
-    if(ret == FAILURE)
+    if(!new_thread || !new_thread->stack || !new_thread->uctx)
 	return FAILURE;
 
     /* initializes the next thread */
     new_thread->tid = tid_counter;
     tid_counter++;
     new_thread->state = READY;
-    new_thread->uctx = uctx;
-    new_thread->stack = stack;
     new_thread->joined_thread = NULL;
 
     /* add the thread to queue */
     queue_enqueue(ready_threads, new_thread);
+
+    /* initializes the context */
+    ret = uthread_ctx_init(new_thread->uctx, new_thread->stack, func, arg);
+    if(ret == FAILURE)
+	return FAILURE;
+
     return new_thread->tid;
 }
 
@@ -217,11 +220,10 @@ int uthread_join(uthread_t tid, int *retval)
     if(tid == 0 || tid == current_thread->tid)
 	return FAILURE;
     
-    int ret;
     struct thread *thread_to_join = NULL;
  
     /* find the thread with tid in the ready threads queue */
-    ret = queue_iterate(ready_threads, find_thread, 
+    queue_iterate(ready_threads, find_thread, 
         (void*)&tid, (void**)&thread_to_join);
        
     /* found the thread in ready threads */
@@ -238,9 +240,9 @@ int uthread_join(uthread_t tid, int *retval)
 	/* yield to next thread (it should be blocked here until joined thread died */
 	uthread_yield();
     }
-
+    
     /* find the thread with tid in the zombie threads queue */
-    ret = queue_iterate(zombie_threads, find_thread,
+    queue_iterate(zombie_threads, find_thread,
         (void*)&tid, (void**)&thread_to_join);
     
     /* found the thread in zombie threads */

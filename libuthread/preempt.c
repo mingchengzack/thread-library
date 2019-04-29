@@ -15,18 +15,44 @@
  */
 #define HZ 100
 
+/*
+ * forceful_yield - forcefully yield to next thread
+ *
+ * @signnum: signal whose behavior you want to control
+ * 
+ * The timer handler that forcefuly yields the currently running thread
+ */
+void forceful_yield (int signum)
+{
+    uthread_yield();
+}
+
 void preempt_disable(void)
 {
-	/* TODO Phase 4 */
+    
 }
 
 void preempt_enable(void)
 {
-	/* TODO Phase 4 */
+    
 }
 
 void preempt_start(void)
 {
-	/* TODO Phase 4 */
+    struct itimerval timer;
+    
+    /* install the timer handler to forcefully yield */
+    signal(SIGVTALRM, forceful_yield);
+    
+    /* set up the time elapse to every 0.01s */
+    timer.it_value.tv_sec = 0;
+    timer.it_value.tv_usec = 10000;
+
+    /* set up timer interval between two alarms */
+    timer.it_interval.tv_sec = 0;
+    timer.it_interval.tv_usec = 1;
+
+    /* set up the virtual timer for process time */
+    setitimer (ITIMER_VIRTUAL, &timer, NULL);
 }
 

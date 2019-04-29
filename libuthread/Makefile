@@ -22,7 +22,7 @@ CUR_PWD := $(shell pwd)
 CC := gcc
 ARC := ar rcs
 #CFLAGS := -Wall -Werror
-
+CFLAGS := -Wall
 # Debug flag for now
 CFLAGS += -g
 
