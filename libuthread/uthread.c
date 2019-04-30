@@ -94,19 +94,11 @@ uthread_t uthread_self(void)
 /*
  * uthread_init - Initializes the uthread library 
  * 
- * This functin registers the execution flow of the application as main thread
- * Return: -1 in case of failure (memory allocation)
+ * This function registers and initializes the main thread for later use
+ *
  */
-int uthread_init(void)
+void uthread_init(void)
 { 
-    /* initializes the ready thread queue */
-    ready_threads = queue_create();
-    zombie_threads = queue_create();
-
-    /* memory allocation failure */
-    if(!ready_threads || !zombie_threads)
-	return FAILURE;
-    
     /* initialize the main thread */
     threads[tid_counter].state = RUNNING;
     threads[tid_counter].uctx = main_ctx;
@@ -119,25 +111,28 @@ int uthread_init(void)
     /* start preemption */
     preempt_start();
     
-    return SUCCESS;
+    return;
 }
 
 int uthread_create(uthread_func_t func, void *arg)
 {
-    int ret = SUCCESS;
-    
     /* first time calling this functon */
     if(tid_counter == 0)
-	ret = uthread_init();
+	uthread_init();
 
-    /* in case of failure */
-    if(ret == FAILURE)
-	return FAILURE;
-    
+    /* memory allocation error */
+    if(!ready_threads || !zombie_threads || !blocked_threads)
+    {
+        /* initializes global queue of threads */
+        ready_threads = queue_create();
+        zombie_threads = queue_create();
+        blocked_threads = queue_create();    
+    }
+
     /* check TID overflow */
     if(tid_counter == USHRT_MAX)
         return FAILURE;  
-   
+    
     /* allocate memory for the stack */
     void *stack = uthread_ctx_alloc_stack();
     
@@ -152,7 +147,7 @@ int uthread_create(uthread_func_t func, void *arg)
     preempt_disable();
 
     /* initializes the context */
-    ret = uthread_ctx_init(&(threads[tid_counter].uctx), stack, func, arg);
+    int ret = uthread_ctx_init(&(threads[tid_counter].uctx), stack, func, arg);
     if(ret == FAILURE)
 	return FAILURE;
 
@@ -173,9 +168,8 @@ int uthread_create(uthread_func_t func, void *arg)
 
 void uthread_exit(int retval)
 {
-    /* add it to zombie queue */
+    /* set return value */
     current_thread->retval = retval;
-    queue_enqueue(zombie_threads, current_thread);
 
     /* disable preemption
      * make sure this thread is put into zombie state
@@ -183,21 +177,22 @@ void uthread_exit(int retval)
      */
     preempt_disable();
 
+    /* create the zombie queue if not initialized */
+    if(!zombie_threads)
+        zombie_threads = queue_create();
+
     /* set current thread as zombie */
+    queue_enqueue(zombie_threads, current_thread);
     current_thread->state = ZOMBIE;
 
     /* unblock joined thread if it has one */
     if(current_thread->joined_thread)
     {
         current_thread->joined_thread->state = READY;
-        queue_enqueue(ready_threads, current_thread->joined_thread);
+	queue_enqueue(ready_threads, current_thread->joined_thread);
 
 	/* remove thread from blocked threads queue*/
         queue_delete(blocked_threads, current_thread->joined_thread);
-
-        /* deallocate the queue if empty */
-        if(queue_length(blocked_threads) == 0)
-	    queue_destroy(blocked_threads);
     }
 
     /* re-enable preemption after making sure the joined thread is re-queued */
@@ -271,10 +266,6 @@ int uthread_join(uthread_t tid, int *retval)
         thread_to_join->joined_thread = current_thread;
 	current_thread->state = BLOCKED;
 
-	/* create the block threads if not initialized */
-	if(!blocked_threads)
-	    blocked_threads = queue_create();
-
 	/* add current thread to block thread */
 	queue_enqueue(blocked_threads, current_thread);
 
@@ -299,6 +290,20 @@ int uthread_join(uthread_t tid, int *retval)
 
 	/* delete the item from the zombie queue */
 	queue_delete(zombie_threads, thread_in_zombie);
+
+	/* main deallocates the all the queues if empty */
+        if(current_thread->tid == 0 &&
+            queue_length(ready_threads) == 0 &&
+	    queue_length(zombie_threads) == 0 && 
+	    queue_length(blocked_threads) == 0)
+        {
+            queue_destroy(ready_threads);
+            ready_threads = NULL;
+            queue_destroy(zombie_threads);
+            zombie_threads = NULL;
+	    queue_destroy(blocked_threads);
+            blocked_threads = NULL;
+	}
 
 	/* set return value */
 	if(retval)
