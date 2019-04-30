@@ -29,12 +29,24 @@ void forceful_yield (int signum)
 
 void preempt_disable(void)
 {
-    
+    /* initialize sigset struct with SIGVTALRM */
+    sigset_t alarm;
+    sigemptyset (&alarm);
+    sigaddset (&alarm, SIGVTALRM);
+
+    /* block the SIGVTALRM signal */
+    sigprocmask(SIG_BLOCK, &alarm, NULL);
 }
 
 void preempt_enable(void)
 {
+    /* initialize sigset struct with SIGVTALRM */
+    sigset_t alarm;
+    sigemptyset (&alarm);
+    sigaddset (&alarm, SIGVTALRM);
     
+    /* unblock the SIGVTALRM signal */
+    sigprocmask(SIG_UNBLOCK, &alarm, NULL);
 }
 
 void preempt_start(void)
@@ -53,6 +65,6 @@ void preempt_start(void)
     timer.it_interval.tv_usec = 1;
 
     /* set up the virtual timer for process time */
-    setitimer (ITIMER_VIRTUAL, &timer, NULL);
+    setitimer(ITIMER_VIRTUAL, &timer, NULL);
 }
 

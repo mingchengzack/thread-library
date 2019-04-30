@@ -44,3 +44,4 @@ int main(void)
 	uthread_join(uthread_create(thread1, NULL), NULL);
 	return 0;
 }
+

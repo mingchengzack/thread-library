@@ -24,7 +24,8 @@ int thread3(void* arg)
 int thread2(void* arg)
 {
 	int retval = 0;
-	uthread_join(uthread_create(thread3, NULL), &retval);
+	//uthread_join(uthread_create(thread3, NULL), &retval);
+	uthread_join(1, &retval);
 	printf("thread%d, waiting for %d\n", uthread_self(), retval);
 	return 2;
 }
@@ -32,16 +33,19 @@ int thread2(void* arg)
 int thread1(void* arg)
 {
 	int retval = 0;
-        uthread_join(uthread_create(thread2, NULL), &retval);
+        uthread_join(3, &retval);
 	printf("thread%d, waiting for %d\n", uthread_self(), retval);
 	return 1;
 }
 
 int main(void)
 {
-	int retval;
+	int retval = 0;
 	uthread_create(thread1, NULL);
-	uthread_join(1, &retval);
+	uthread_create(thread2, NULL);
+	uthread_create(thread3, NULL);
+	uthread_join(2, &retval);
+	
 	printf("thread%d, waiting for %d\n", uthread_self(), retval);
 	return 0;
 }

@@ -21,8 +21,8 @@ CUR_PWD := $(shell pwd)
 # GCC flags
 CC := gcc
 ARC := ar rcs
-#CFLAGS := -Wall -Werror
-CFLAGS := -Wall
+CFLAGS := -Wall -Werror
+
 # Debug flag for now
 CFLAGS += -g
 

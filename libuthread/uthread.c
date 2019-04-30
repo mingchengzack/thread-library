@@ -30,7 +30,7 @@ struct thread
 {
     uthread_t tid;                            /* thread identifier */
     int state;                                /* running, ready, blocked, etc */
-    uthread_ctx_t *uctx;                      /* context */
+    uthread_ctx_t uctx;                       /* context */
     void *stack;                              /* the stack */
     int retval;                               /* the return value of thread */
     struct thread *joined_thread;             /* the thread (blocked)that has joined to this thread */
@@ -38,38 +38,49 @@ struct thread
 
 /* define global variables */
 static uthread_ctx_t main_ctx;                /* the main context */
-static struct thread main_thread;             /* the main thread */
 static uthread_t tid_counter = 0;             /* the TID counter */
 static queue_t ready_threads = NULL;          /* a queue of the available threads */
 static queue_t zombie_threads = NULL;         /* a queue of zombie threads wait for collection */
+static queue_t blocked_threads = NULL;        /* a queue of blockced threads */
 static struct thread *current_thread = NULL;  /* current running thread */
+static struct thread threads[USHRT_MAX];      /* the container for all the threads */
 
 void uthread_yield(void)
 {
     struct thread *next_thread;
     int ret;
+    
+    /* disable preemption
+     * make sure it doesn't yield to the next of the first ready queue first
+     * if it preempts after queue dequeue or after current thread is set to next thread
+     */
+    preempt_disable();
+
     /* get the next available thread */
     ret = queue_dequeue(ready_threads, (void**)&next_thread); 
 
     /* check if the queue of threads is empty */
     if(ret == FAILURE)
-        return;
+	return;
 
-    /* save the current thread */
-    if(current_thread->state != BLOCKED)
+    /* save the current thread if it is running */
+    if(current_thread->state == RUNNING)
     {
         /* enqueue the thread only if it is not blocked */
         current_thread->state = READY;
         queue_enqueue(ready_threads, current_thread);
     }
-    uthread_ctx_t *current_uctx = current_thread->uctx;
-   
+    uthread_ctx_t *current_uctx = &(current_thread->uctx);
+
     /* set current thread with new thread */
     next_thread->state = RUNNING;
     current_thread = next_thread;
 
+    /* re-enable preemption after yieiding to the next thread */
+    preempt_enable();
+
     /* context switch from current to next thread */
-    uthread_ctx_switch(current_uctx, next_thread->uctx);   
+    uthread_ctx_switch(current_uctx, &(next_thread->uctx));   
 }
 
 uthread_t uthread_self(void)
@@ -97,24 +108,24 @@ int uthread_init(void)
 	return FAILURE;
     
     /* initialize the main thread */
-    current_thread = &main_thread;
+    threads[tid_counter].state = RUNNING;
+    threads[tid_counter].uctx = main_ctx;
+    threads[tid_counter].joined_thread = NULL;
+    threads[tid_counter].tid = tid_counter;
 
     /* set current running thread the main thread */
-    current_thread->tid = tid_counter;
-    tid_counter++;
-    current_thread->state = RUNNING;
-    current_thread->uctx = &main_ctx;
-    current_thread->joined_thread = NULL;
-    
-    /* start preemption */
-    //preempt_start();
+    current_thread = &threads[tid_counter++];
 
+    /* start preemption */
+    preempt_start();
+    
     return SUCCESS;
 }
 
 int uthread_create(uthread_func_t func, void *arg)
 {
     int ret = SUCCESS;
+    
     /* first time calling this functon */
     if(tid_counter == 0)
 	ret = uthread_init();
@@ -127,63 +138,73 @@ int uthread_create(uthread_func_t func, void *arg)
     if(tid_counter == USHRT_MAX)
         return FAILURE;  
    
-    /* allocate memory for a new context and the thread */
-    struct thread *new_thread = (struct thread*) malloc(sizeof(struct thread));
-    new_thread->stack = uthread_ctx_alloc_stack();
-    new_thread->uctx = (uthread_ctx_t *) malloc(sizeof(uthread_ctx_t));
+    /* allocate memory for the stack */
+    void *stack = uthread_ctx_alloc_stack();
     
     /* memory allocation error */
-    if(!new_thread || !new_thread->stack || !new_thread->uctx)
+    if(!stack)
 	return FAILURE;
 
-    /* initializes the next thread */
-    new_thread->tid = tid_counter;
-    tid_counter++;
-    new_thread->state = READY;
-    new_thread->joined_thread = NULL;
-
-    /* add the thread to queue */
-    queue_enqueue(ready_threads, new_thread);
+    /* disable preemption 
+     * make sure it doesn't get overwritten by other threads
+     * if other threads also call uthread_creat()
+     */
+    preempt_disable();
 
     /* initializes the context */
-    ret = uthread_ctx_init(new_thread->uctx, new_thread->stack, func, arg);
+    ret = uthread_ctx_init(&(threads[tid_counter].uctx), stack, func, arg);
     if(ret == FAILURE)
 	return FAILURE;
 
-    return new_thread->tid;
+    /* initializes the next thread */
+    threads[tid_counter].state = READY;
+    threads[tid_counter].joined_thread = NULL;
+    threads[tid_counter].tid = tid_counter;
+    threads[tid_counter].stack = stack;
+    
+    /* add the thread to queue */
+    queue_enqueue(ready_threads, &threads[tid_counter++]);
+    
+    /* re-enable preemption */
+    preempt_enable();
+    
+    return (tid_counter - 1);
 }
 
 void uthread_exit(int retval)
 {
-    struct thread *next_thread;
-    int ret;
-
-    /* set current thread as zombie and add it to zombie queue */
-    current_thread->state = ZOMBIE;
+    /* add it to zombie queue */
     current_thread->retval = retval;
     queue_enqueue(zombie_threads, current_thread);
+
+    /* disable preemption
+     * make sure this thread is put into zombie state
+     * if the next thread is the thread that wants to join this thread
+     */
+    preempt_disable();
+
+    /* set current thread as zombie */
+    current_thread->state = ZOMBIE;
 
     /* unblock joined thread if it has one */
     if(current_thread->joined_thread)
     {
         current_thread->joined_thread->state = READY;
         queue_enqueue(ready_threads, current_thread->joined_thread);
+
+	/* remove thread from blocked threads queue*/
+        queue_delete(blocked_threads, current_thread->joined_thread);
+
+        /* deallocate the queue if empty */
+        if(queue_length(blocked_threads) == 0)
+	    queue_destroy(blocked_threads);
     }
 
-    /* get the next available thread */
-    ret = queue_dequeue(ready_threads, (void**)&next_thread);
+    /* re-enable preemption after making sure the joined thread is re-queued */
+    preempt_enable();
     
-    /* check if thread library is initialized
-     * and there is another ready thread
-     */
-    if(ret == FAILURE)
-        return;
-
-    /* context switch to next thread */
-    uthread_ctx_t *current_uctx = current_thread->uctx;
-    next_thread->state = RUNNING;
-    current_thread = next_thread;
-    uthread_ctx_switch(current_uctx, next_thread->uctx);
+    /* yield to next available thread */
+    uthread_yield();
 }
 
 /* delete_thread - Free the memory space allocated for the thread struct
@@ -192,9 +213,7 @@ void uthread_exit(int retval)
  */
 void delete_thread(struct thread *t)
 {
-    free(t->uctx);                         /* free the context */
     uthread_ctx_destroy_stack(t->stack);   /* free the stack space */
-    free(t);                               /* free the thread struct */
 }
 
 /* find_thread - Callback function that finds a thread according to its id
@@ -220,22 +239,47 @@ int uthread_join(uthread_t tid, int *retval)
     if(tid == 0 || tid == current_thread->tid)
 	return FAILURE;
     
-    struct thread *thread_to_join = NULL;
- 
+    struct thread *thread_in_ready = NULL;
+    struct thread *thread_in_blocked = NULL;
+    struct thread *thread_in_zombie = NULL;
+    
     /* find the thread with tid in the ready threads queue */
     queue_iterate(ready_threads, find_thread, 
-        (void*)&tid, (void**)&thread_to_join);
-       
-    /* found the thread in ready threads */
-    if(thread_to_join)
+        (void*)&tid, (void**)&thread_in_ready);
+     
+    /* find the thread with tid in the blocked threads queue */
+    queue_iterate(blocked_threads, find_thread,
+        (void*)&tid, (void**)&thread_in_blocked);
+  
+    /* found the thread in ready or blocked threads */
+    if(thread_in_ready || thread_in_blocked)
     {   
-	/* the thread has already been joined */
-        if(thread_to_join->joined_thread)
-            return FAILURE; 
+	struct thread *thread_to_join = thread_in_ready ? 
+            thread_in_ready : thread_in_blocked;
 
+       /* disable preemption
+        * make sure the found thread can only be joined once
+        * if the next thread also wants to join this found thread
+        */
+        preempt_disable();
+
+	/* the thread has already been joined */
+	if(thread_to_join->joined_thread)
+                return FAILURE; 
+        
 	/* save the blocked thread (current one) */
         thread_to_join->joined_thread = current_thread;
 	current_thread->state = BLOCKED;
+
+	/* create the block threads if not initialized */
+	if(!blocked_threads)
+	    blocked_threads = queue_create();
+
+	/* add current thread to block thread */
+	queue_enqueue(blocked_threads, current_thread);
+
+	/* re-enable preemption after registering the joined thread */
+	preempt_enable();
 
 	/* yield to next thread (it should be blocked here until joined thread died */
 	uthread_yield();
@@ -243,25 +287,25 @@ int uthread_join(uthread_t tid, int *retval)
     
     /* find the thread with tid in the zombie threads queue */
     queue_iterate(zombie_threads, find_thread,
-        (void*)&tid, (void**)&thread_to_join);
+        (void*)&tid, (void**)&thread_in_zombie);
     
     /* found the thread in zombie threads */
-    if(thread_to_join)
+    if(thread_in_zombie)
     {
 	/* the thread has already been joined */
-        if(thread_to_join->joined_thread
-	    && thread_to_join->joined_thread != current_thread)
+        if(thread_in_zombie->joined_thread
+	    && thread_in_zombie->joined_thread != current_thread)
             return FAILURE; 
 
 	/* delete the item from the zombie queue */
-	queue_delete(zombie_threads, thread_to_join);
+	queue_delete(zombie_threads, thread_in_zombie);
 
 	/* set return value */
 	if(retval)
-	    *retval = thread_to_join->retval;
+	    *retval = thread_in_zombie->retval;
 
 	/* free the resources with the dead thread */
-        delete_thread(thread_to_join);
+        delete_thread(thread_in_zombie);
 	return SUCCESS;
     }
 
