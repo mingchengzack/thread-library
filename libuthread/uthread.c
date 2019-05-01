@@ -12,6 +12,10 @@
 #include "queue.h"
 #include "uthread.h"
 
+/* success and failure defines */
+#define SUCCESS 0
+#define FAILURE -1
+
 /* enum of state of the thread */
 enum
 {
@@ -20,10 +24,6 @@ enum
     BLOCKED,
     ZOMBIE
 };
-
-/* success and failure defines */
-#define SUCCESS 0
-#define FAILURE -1
 
 /* struct that holds info about the thread */
 struct thread
@@ -61,7 +61,11 @@ void uthread_yield(void)
 
     /* check if the queue of threads is empty */
     if(ret == FAILURE)
+    {
+	/* re-enable preemption since return early */
+	preempt_enable();
 	return;
+    }
 
     /* save the current thread if it is running */
     if(current_thread->state == RUNNING)
@@ -149,7 +153,11 @@ int uthread_create(uthread_func_t func, void *arg)
     /* initializes the context */
     int ret = uthread_ctx_init(&(threads[tid_counter].uctx), stack, func, arg);
     if(ret == FAILURE)
-	return FAILURE;
+    {
+	/* re-enable preemption since return early */
+	preempt_enable();
+    	return FAILURE;
+    }
 
     /* initializes the next thread */
     threads[tid_counter].state = READY;
@@ -226,6 +234,10 @@ static int find_thread(void *data, void *arg)
 
 int uthread_join(uthread_t tid, int *retval)
 { 
+    /* main thread not initialized */
+    if(!current_thread)
+	return FAILURE;
+
     /* main thread cannot be joined or cannot join itself */
     if(tid == 0 || tid == current_thread->tid)
 	return FAILURE;
@@ -245,7 +257,7 @@ int uthread_join(uthread_t tid, int *retval)
     /* found the thread in ready or blocked threads */
     if(thread_in_ready || thread_in_blocked)
     {   
-	struct thread *thread_to_join = thread_in_ready ? 
+    	struct thread *thread_to_join = thread_in_ready ? 
             thread_in_ready : thread_in_blocked;
 
        /* disable preemption
@@ -256,7 +268,11 @@ int uthread_join(uthread_t tid, int *retval)
 
 	/* the thread has already been joined */
 	if(thread_to_join->joined_thread)
-                return FAILURE; 
+        {
+	    /* re-enable preemption since return early */
+            preempt_enable();
+	    return FAILURE;
+	}
         
 	/* save the blocked thread (current one) */
         thread_to_join->joined_thread = current_thread;
@@ -279,10 +295,20 @@ int uthread_join(uthread_t tid, int *retval)
     /* found the thread in zombie threads */
     if(thread_in_zombie)
     {
+       /* disable preemption
+        * make sure the found thread can only be collected once
+        * if the next thread also wants to join this found thread
+        */
+        preempt_disable();
+
 	/* the thread has already been joined */
         if(thread_in_zombie->joined_thread
 	    && thread_in_zombie->joined_thread != current_thread)
+        {
+	    /* re-enable preemption since return early */
+            preempt_enable();
             return FAILURE; 
+	}
 
 	/* delete the item from the zombie queue */
 	queue_delete(zombie_threads, thread_in_zombie);
@@ -307,6 +333,10 @@ int uthread_join(uthread_t tid, int *retval)
 
 	/* free the resources with the dead thread */
         delete_thread(thread_in_zombie);
+	
+	/* re-enable preemption after collecting the thread */
+        preempt_enable();
+
 	return SUCCESS;
     }
 
