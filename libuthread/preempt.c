@@ -31,8 +31,8 @@ void preempt_disable(void)
 {
     /* initialize sigset struct with SIGVTALRM */
     sigset_t alarm;
-    sigemptyset (&alarm);
-    sigaddset (&alarm, SIGVTALRM);
+    sigemptyset(&alarm);
+    sigaddset(&alarm, SIGVTALRM);
 
     /* block the SIGVTALRM signal */
     sigprocmask(SIG_BLOCK, &alarm, NULL);
@@ -42,8 +42,8 @@ void preempt_enable(void)
 {
     /* initialize sigset struct with SIGVTALRM */
     sigset_t alarm;
-    sigemptyset (&alarm);
-    sigaddset (&alarm, SIGVTALRM);
+    sigemptyset(&alarm);
+    sigaddset(&alarm, SIGVTALRM);
     
     /* unblock the SIGVTALRM signal */
     sigprocmask(SIG_UNBLOCK, &alarm, NULL);
@@ -52,13 +52,13 @@ void preempt_enable(void)
 void preempt_start(void)
 {
     struct itimerval timer;
-    
+
     /* install the timer handler to forcefully yield */
     signal(SIGVTALRM, forceful_yield);
     
     /* set up the time elapse to every 0.01s */
     timer.it_value.tv_sec = 0;
-    timer.it_value.tv_usec = 10000;
+    timer.it_value.tv_usec = 1000000 / HZ;
 
     /* set up timer interval between two alarms */
     timer.it_interval.tv_sec = 0;
