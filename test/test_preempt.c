@@ -9,8 +9,9 @@
  *
  * Tests the preemption functionality. Three threads are created in main.
  * main yields to thread 1. Thread 1 should never end but it will preempt
- * to thread 2, and thread 2 also never ends but it will preept to thread 3
- * and thread 3 will finish after printing out message
+ * to thread 2, and thread 2 also never ends but it will preempt to thread 3
+ * and thread 3 will finish after printing out message, and it goes back to
+ * main to the finish the program
  *
  * Output:
  * thread1 started

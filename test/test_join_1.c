@@ -1,9 +1,9 @@
 /*
- * Thread join test
+ * Thread join test 1
  *
- * Tests the uthread_join functions. Three threads are created in main.
- * Thread 1 waits for thread 3, threads 2 waits for thread 1, threads 3 simply runs
- * and main thread waits for thread 2
+ * Tests the uthread_join function. Three threads are created in main.
+ * Thread 1 joins thread 2, threads 2 joins thread 1, threads 3 simply runs
+ * and main thread joins thread 2
  *
  * Output:
  * thread3

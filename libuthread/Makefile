@@ -23,9 +23,6 @@ CC := gcc
 ARC := ar rcs
 CFLAGS := -Wall -Werror
 
-# Debug flag for now
-CFLAGS += -g
-
 # Generate dependencies
 DEPFLAGS = -MMD -MF $(@:.o=.d)
 

@@ -123,7 +123,7 @@ int uthread_create(uthread_func_t func, void *arg)
     /* memory allocation error */
     if(!ready_threads || !zombie_threads || !blocked_threads)
     {
-        /* initializes global queue of threads */
+    	/* initializes global queue of threads */
         ready_threads = queue_create();
         zombie_threads = queue_create();
         blocked_threads = queue_create();    
@@ -176,10 +176,6 @@ void uthread_exit(int retval)
      * if the next thread is the thread that wants to join this thread
      */
     preempt_disable();
-
-    /* create the zombie queue if not initialized */
-    if(!zombie_threads)
-        zombie_threads = queue_create();
 
     /* set current thread as zombie */
     queue_enqueue(zombie_threads, current_thread);
@@ -237,7 +233,7 @@ int uthread_join(uthread_t tid, int *retval)
     struct thread *thread_in_ready = NULL;
     struct thread *thread_in_blocked = NULL;
     struct thread *thread_in_zombie = NULL;
-    
+
     /* find the thread with tid in the ready threads queue */
     queue_iterate(ready_threads, find_thread, 
         (void*)&tid, (void**)&thread_in_ready);
