@@ -104,7 +104,7 @@ int queue_delete(queue_t queue, void *data)
     if(!queue || !data)
         return FAILURE;
     
-    /* queue is not empty */
+    /* queue is not NULL */
     struct queue_node *current_item = queue->head;       /* get the current head */
     struct queue_node *prev_item = NULL;
     while(current_item && current_item->data != data)    /* while not the end and not found yet */
