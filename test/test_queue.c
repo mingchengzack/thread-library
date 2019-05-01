@@ -349,7 +349,7 @@ void test_inc(int inc, int *data, int *match, int length)
  * @length: The length of the data array
  * @pos: The position of the find_value in the data array
  *
- * Test inc_item with given incremental value in queue_iterate function
+ * Test find_item with given item to find in queue_iterate function
  */
 void test_find(int find_value, int find_mode, int *data, int length, int pos)
 {
@@ -388,6 +388,7 @@ void test_find(int find_value, int find_mode, int *data, int length, int pos)
  * case 2: used inc_item to increment -2 ot the item in the queue
  * case 3: used find_item to find the item 8
  * case 4: used find_item to find the item 50
+ * case 5: used find_time to find the last item (10)
  */ 
 void test_iterate(void)
 {
@@ -419,11 +420,14 @@ void test_iterate(void)
     int inc_neg_two_match[8] = {1, 2, 3, 4, 5, 6, 7, 8};
     test_inc(-2, case_inc_neg_two, inc_neg_two_match, 8);
 
-    /* case 3: used find_item to find the item 8 and increment it */
+    /* case 3: used find_item to find the item 8 */
     test_find(8, FOUND, case_find, 8, 5);
 
     /* case 4: used find_item to find the item 50 */
     test_find(50, NOT_FOUND, case_find, 8, 5);
+    
+    /* case 5: used find_time to find the last item (10) */
+    test_find(10, FOUND, case_find, 8, 7);
 
     printf("queue_iterate()...OK!\n\n");
 }

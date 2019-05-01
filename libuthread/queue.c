@@ -156,6 +156,6 @@ int queue_iterate(queue_t queue, queue_func_t func, void *arg, void **data)
 int queue_length(queue_t queue)
 {
     /* -1 if queue is NULL, length of the queue otherwise */
-    return queue ? queue->length : -1;
+    return queue ? queue->length : FAILURE;
 }
 
