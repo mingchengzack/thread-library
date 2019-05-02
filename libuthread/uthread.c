@@ -271,6 +271,7 @@ int uthread_join(uthread_t tid, int *retval)
         {
 	    /* re-enable preemption since return early */
             preempt_enable();
+	    printf("already be joined\n");
 	    return FAILURE;
 	}
         
