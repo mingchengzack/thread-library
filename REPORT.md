@@ -156,6 +156,10 @@
   of every 0.01s.
   
   **preempt_disable()**: We use sigprocmask to tell it to block SIGVTALRM.
+  We add preempt_disable to temporarily disable preemption in uthread_join,
+  uthread_yield(), uthread_create and uthread_exit, where we actually
+  modify some of our global variables. We re-enable preemption after
+  making sure our global variables are set.
   
   **preempt_enable()**: We use sigprocmask to tell it to unblock SIGVTALRM.
   
@@ -180,3 +184,4 @@
 
 # Resources
   https://www.gnu.org/software/libc/manual/html_mono/libc.html
+

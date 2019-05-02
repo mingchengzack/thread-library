@@ -146,7 +146,7 @@ int uthread_create(uthread_func_t func, void *arg)
 
     /* disable preemption 
      * make sure it doesn't get overwritten by other threads
-     * if other threads also call uthread_creat()
+     * if other threads also call uthread_create()
      */
     preempt_disable();
 
