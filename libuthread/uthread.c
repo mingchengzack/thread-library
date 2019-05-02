@@ -271,7 +271,6 @@ int uthread_join(uthread_t tid, int *retval)
         {
 	    /* re-enable preemption since return early */
             preempt_enable();
-	    printf("already be joined\n");
 	    return FAILURE;
 	}
         
@@ -285,7 +284,7 @@ int uthread_join(uthread_t tid, int *retval)
 	/* re-enable preemption after registering the joined thread */
 	preempt_enable();
 
-	/* yield to next thread (it should be blocked here until joined thread died */
+	/* yield to next thread (it should be blocked here until joined thread dies */
 	uthread_yield();
     }
     
